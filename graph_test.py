@@ -141,8 +141,8 @@ class GraphTest(unittest.TestCase):
   def test_enumerate_cyclics(self):
     g = GraphTest.g
 
-    for a, b, c, d, x, y, z, t in g.all_cyclics():
-      self.assertTrue(g.check_cyclic([a, b, c, d, x, y, z, t]))
+    for a, b, c, d in g.all_cyclics():
+      self.assertTrue(g.check_cyclic([a, b, c, d]))
       self.assertTrue(nm.check_cyclic([a.num, b.num, c.num, d.num]))
 
   def test_enumerate_midps(self):

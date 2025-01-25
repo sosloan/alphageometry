@@ -98,6 +98,62 @@ class AlphaGeometryTest(unittest.TestCase):
     beam_queue = list(beam_queue)
     self.assertEqual(beam_queue, [(3, 'c'), (2, 'b')])
 
+  def test_natural_language_statement(self):
+    logical_statement = pr.Dependency(name='cong', args=['A', 'B', 'C', 'D'])
+    result = alphageometry.natural_language_statement(logical_statement)
+    self.assertEqual(result, 'A is congruent to B, C, and D')
+
+  def test_proof_step_string(self):
+    proof_step = pr.Dependency(
+        name='cong', args=['A', 'B', 'C', 'D'], premises=[], conclusion=['E']
+    )
+    refs = {('A', 'B', 'C', 'D'): 1}
+    result = alphageometry.proof_step_string(proof_step, refs, last_step=False)
+    self.assertEqual(result, 'A is congruent to B, C, and D [01] ⇒ E')
+
+  def test_write_solution(self):
+    g = gh.Graph()
+    p = pr.Problem(goal=pr.Dependency(name='cong', args=['A', 'B', 'C', 'D']))
+    out_file = 'test_output.txt'
+    alphageometry.write_solution(g, p, out_file)
+    with open(out_file, 'r') as f:
+      content = f.read()
+    self.assertIn('Solution written to', content)
+
+  def test_get_lm(self):
+    ckpt_init = 'path/to/checkpoint'
+    vocab_path = 'path/to/vocab'
+    result = alphageometry.get_lm(ckpt_init, vocab_path)
+    self.assertIsInstance(result, lm.LanguageModelInference)
+
+  def test_run_ddar(self):
+    g = gh.Graph()
+    p = pr.Problem(goal=pr.Dependency(name='cong', args=['A', 'B', 'C', 'D']))
+    out_file = 'test_output.txt'
+    result = alphageometry.run_ddar(g, p, out_file)
+    self.assertFalse(result)
+
+  def test_try_translate_constrained_to_construct(self):
+    string = 'd = perp a b c d ;'
+    g = gh.Graph()
+    result = alphageometry.try_translate_constrained_to_construct(string, g)
+    self.assertEqual(result, 'd = on_tline a b c d')
+
+  def test_check_valid_args(self):
+    self.assertTrue(alphageometry.check_valid_args('perp', ['a', 'b', 'c', 'd']))
+    self.assertFalse(alphageometry.check_valid_args('perp', ['a', 'b', 'c']))
+
+  def test_run_alphageometry(self):
+    model = lm.LanguageModelInference(vocab_path='path/to/vocab', ckpt_init='path/to/checkpoint')
+    p = pr.Problem(goal=pr.Dependency(name='cong', args=['A', 'B', 'C', 'D']))
+    search_depth = 1
+    beam_size = 1
+    out_file = 'test_output.txt'
+    result = alphageometry.run_alphageometry(model, p, search_depth, beam_size, out_file)
+    self.assertFalse(result)
+
+  def test_main(self):
+    alphageometry.main(None)
 
 if __name__ == '__main__':
   absltest.main()
