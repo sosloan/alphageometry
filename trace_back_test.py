@@ -56,6 +56,179 @@ class TracebackTest(unittest.TestCase):
         aux, [('coll', 'a', 'c', 'e'), ('coll', 'b', 'd', 'e')]
     )
 
+  def test_get_logs(self):
+    txt = 'a b c = triangle a b c; d = on_tline d b a c, on_tline d c a b; e = on_line e a c, on_line e b d ? perp a d b c'  # pylint: disable=line-too-long
+    p = pr.Problem.from_txt(txt)
+    g, _ = gh.Graph.build_problem(p, TracebackTest.defs)
+
+    ddar.solve(g, TracebackTest.rules, p)
+
+    goal_args = g.names2nodes(p.goal.args)
+    query = pr.Dependency(p.goal.name, goal_args, None, None)
+
+    setup, aux, log, setup_points = tb.get_logs(query, g, merge_trivials=False)
+
+    self.assertIsInstance(setup, list)
+    self.assertIsInstance(aux, list)
+    self.assertIsInstance(log, list)
+    self.assertIsInstance(setup_points, set)
+
+  def test_recursive_traceback(self):
+    txt = 'a b c = triangle a b c; d = on_tline d b a c, on_tline d c a b; e = on_line e a c, on_line e b d ? perp a d b c'  # pylint: disable=line-too-long
+    p = pr.Problem.from_txt(txt)
+    g, _ = gh.Graph.build_problem(p, TracebackTest.defs)
+
+    ddar.solve(g, TracebackTest.rules, p)
+
+    goal_args = g.names2nodes(p.goal.args)
+    query = pr.Dependency(p.goal.name, goal_args, None, None)
+
+    log = tb.recursive_traceback(query)
+
+    self.assertIsInstance(log, list)
+
+  def test_point_log(self):
+    txt = 'a b c = triangle a b c; d = on_tline d b a c, on_tline d c a b; e = on_line e a c, on_line e b d ? perp a d b c'  # pylint: disable=line-too-long
+    p = pr.Problem.from_txt(txt)
+    g, _ = gh.Graph.build_problem(p, TracebackTest.defs)
+
+    ddar.solve(g, TracebackTest.rules, p)
+
+    goal_args = g.names2nodes(p.goal.args)
+    query = pr.Dependency(p.goal.name, goal_args, None, None)
+
+    setup, aux, log, setup_points = tb.get_logs(query, g, merge_trivials=False)
+
+    ref_id = {}
+    log = tb.point_log(setup, ref_id)
+
+    self.assertIsInstance(log, list)
+    self.assertIsInstance(ref_id, dict)
+
+  def test_collx_to_coll(self):
+    txt = 'a b c = triangle a b c; d = on_tline d b a c, on_tline d c a b; e = on_line e a c, on_line e b d ? perp a d b c'  # pylint: disable=line-too-long
+    p = pr.Problem.from_txt(txt)
+    g, _ = gh.Graph.build_problem(p, TracebackTest.defs)
+
+    ddar.solve(g, TracebackTest.rules, p)
+
+    goal_args = g.names2nodes(p.goal.args)
+    query = pr.Dependency(p.goal.name, goal_args, None, None)
+
+    setup, aux, log, setup_points = tb.get_logs(query, g, merge_trivials=False)
+
+    setup, aux, log = tb.collx_to_coll(setup, aux, log)
+
+    self.assertIsInstance(setup, list)
+    self.assertIsInstance(aux, list)
+    self.assertIsInstance(log, list)
+
+  def test_shorten_and_shave(self):
+    txt = 'a b c = triangle a b c; d = on_tline d b a c, on_tline d c a b; e = on_line e a c, on_line e b d ? perp a d b c'  # pylint: disable=line-too-long
+    p = pr.Problem.from_txt(txt)
+    g, _ = gh.Graph.build_problem(p, TracebackTest.defs)
+
+    ddar.solve(g, TracebackTest.rules, p)
+
+    goal_args = g.names2nodes(p.goal.args)
+    query = pr.Dependency(p.goal.name, goal_args, None, None)
+
+    setup, aux, log, setup_points = tb.get_logs(query, g, merge_trivials=False)
+
+    setup, aux, log = tb.shorten_and_shave(setup, aux, log)
+
+    self.assertIsInstance(setup, list)
+    self.assertIsInstance(aux, list)
+    self.assertIsInstance(log, list)
+
+  def test_join_prems(self):
+    txt = 'a b c = triangle a b c; d = on_tline d b a c, on_tline d c a b; e = on_line e a c, on_line e b d ? perp a d b c'  # pylint: disable=line-too-long
+    p = pr.Problem.from_txt(txt)
+    g, _ = gh.Graph.build_problem(p, TracebackTest.defs)
+
+    ddar.solve(g, TracebackTest.rules, p)
+
+    goal_args = g.names2nodes(p.goal.args)
+    query = pr.Dependency(p.goal.name, goal_args, None, None)
+
+    log = tb.recursive_traceback(query)
+
+    con2prem = {}
+    expanded = set()
+
+    result = tb.join_prems(query, con2prem, expanded)
+
+    self.assertIsInstance(result, list)
+
+  def test_setup_to_levels(self):
+    txt = 'a b c = triangle a b c; d = on_tline d b a c, on_tline d c a b; e = on_line e a c, on_line e b d ? perp a d b c'  # pylint: disable=line-too-long
+    p = pr.Problem.from_txt(txt)
+    g, _ = gh.Graph.build_problem(p, TracebackTest.defs)
+
+    ddar.solve(g, TracebackTest.rules, p)
+
+    goal_args = g.names2nodes(p.goal.args)
+    query = pr.Dependency(p.goal.name, goal_args, None, None)
+
+    setup, aux, log, setup_points = tb.get_logs(query, g, merge_trivials=False)
+
+    levels = tb.setup_to_levels(setup)
+
+    self.assertIsInstance(levels, list)
+
+  def test_point_levels(self):
+    txt = 'a b c = triangle a b c; d = on_tline d b a c, on_tline d c a b; e = on_line e a c, on_line e b d ? perp a d b c'  # pylint: disable=line-too-long
+    p = pr.Problem.from_txt(txt)
+    g, _ = gh.Graph.build_problem(p, TracebackTest.defs)
+
+    ddar.solve(g, TracebackTest.rules, p)
+
+    goal_args = g.names2nodes(p.goal.args)
+    query = pr.Dependency(p.goal.name, goal_args, None, None)
+
+    setup, aux, log, setup_points = tb.get_logs(query, g, merge_trivials=False)
+
+    levels = tb.point_levels(setup, [])
+
+    self.assertIsInstance(levels, list)
+
+  def test_separate_dependency_difference(self):
+    txt = 'a b c = triangle a b c; d = on_tline d b a c, on_tline d c a b; e = on_line e a c, on_line e b d ? perp a d b c'  # pylint: disable=line-too-long
+    p = pr.Problem.from_txt(txt)
+    g, _ = gh.Graph.build_problem(p, TracebackTest.defs)
+
+    ddar.solve(g, TracebackTest.rules, p)
+
+    goal_args = g.names2nodes(p.goal.args)
+    query = pr.Dependency(p.goal.name, goal_args, None, None)
+
+    setup, aux, log, setup_points = tb.get_logs(query, g, merge_trivials=False)
+
+    log, setup, aux_setup, points, aux_points = tb.separate_dependency_difference(query, log)
+
+    self.assertIsInstance(log, list)
+    self.assertIsInstance(setup, list)
+    self.assertIsInstance(aux_setup, list)
+    self.assertIsInstance(points, set)
+    self.assertIsInstance(aux_points, set)
+
+  def test_shorten_proof(self):
+    txt = 'a b c = triangle a b c; d = on_tline d b a c, on_tline d c a b; e = on_line e a c, on_line e b d ? perp a d b c'  # pylint: disable=line-too-long
+    p = pr.Problem.from_txt(txt)
+    g, _ = gh.Graph.build_problem(p, TracebackTest.defs)
+
+    ddar.solve(g, TracebackTest.rules, p)
+
+    goal_args = g.names2nodes(p.goal.args)
+    query = pr.Dependency(p.goal.name, goal_args, None, None)
+
+    log = tb.recursive_traceback(query)
+
+    log, con2prem = tb.shorten_proof(log)
+
+    self.assertIsInstance(log, list)
+    self.assertIsInstance(con2prem, dict)
+
 
 if __name__ == '__main__':
   absltest.main()

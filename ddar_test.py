@@ -60,6 +60,48 @@ class DDARTest(unittest.TestCase):
     goal_args = g.names2nodes(p.goal.args)
     self.assertTrue(g.check(p.goal.name, goal_args))
 
+  def test_saturate_or_goal(self):
+    g = gh.Graph()
+    theorems = [pr.Theorem.from_txt("a b c = triangle a b c; d = on_tline d b a c, on_tline d c a b ? perp a d b c")]
+    level_times = []
+    p = pr.Problem.from_txt("a b c = triangle a b c; d = on_tline d b a c, on_tline d c a b ? perp a d b c")
+    max_level = 100
+    timeout = 600
+
+    derives, eq4s, branching, all_added = ddar.saturate_or_goal(g, theorems, level_times, p, max_level, timeout)
+
+    self.assertIsInstance(derives, list)
+    self.assertIsInstance(eq4s, list)
+    self.assertIsInstance(branching, list)
+    self.assertIsInstance(all_added, list)
+
+  def test_solve(self):
+    g = gh.Graph()
+    theorems = [pr.Theorem.from_txt("a b c = triangle a b c; d = on_tline d b a c, on_tline d c a b ? perp a d b c")]
+    controller = pr.Problem.from_txt("a b c = triangle a b c; d = on_tline d b a c, on_tline d c a b ? perp a d b c")
+    max_level = 1000
+    timeout = 600
+
+    result_g, level_times, status, branches, all_added = ddar.solve(g, theorems, controller, max_level, timeout)
+
+    self.assertIsInstance(result_g, gh.Graph)
+    self.assertIsInstance(level_times, list)
+    self.assertIsInstance(status, str)
+    self.assertIsInstance(branches, list)
+    self.assertIsInstance(all_added, list)
+
+  def test_get_proof_steps(self):
+    g = gh.Graph()
+    goal = pr.Clause("perp a d b c", ["a", "d", "b", "c"])
+    merge_trivials = False
+
+    setup, aux, log, refs = ddar.get_proof_steps(g, goal, merge_trivials)
+
+    self.assertIsInstance(setup, list)
+    self.assertIsInstance(aux, list)
+    self.assertIsInstance(log, list)
+    self.assertIsInstance(refs, dict)
+
 
 if __name__ == '__main__':
   absltest.main()
