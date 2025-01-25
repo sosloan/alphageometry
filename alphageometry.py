@@ -1,22 +1,4 @@
-# Copyright 2023 DeepMind Technologies Limited
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ==============================================================================
-
-"""Run DD+AR or AlphaGeometry solver.
-
-Please refer to README.md for detailed instructions.
-"""
+import modal
 
 import traceback
 
@@ -72,7 +54,7 @@ _PROBLEM_NAME = flags.DEFINE_string(
     'name of the problem to solve, must be in the problem_file.',
 )
 _MODE = flags.DEFINE_string(
-    'mode', 'ddar', 'either `ddar` (DD+AR) or `alphageometry`')
+    'mode', 'ddar', 'either `ddar` (DD+AR) or `alphageometry` or `analyze_agent_tuning_dataset` or `knowledge`')
 _DEFS_FILE = flags.DEFINE_string(
     'defs_file',
     'defs.txt',
@@ -630,7 +612,7 @@ def analyze_agent_tuning_dataset():
 
     def load_agent_instruct():
         response = requests.get(API_ENDPOINT + '/load_agent_instruct', headers=headers)
-        if response.status_code == 200:
+        if (response.status_code == 200):
             try:
                 response = json.loads(response.text)
                 df = pd.DataFrame(response['data'])
@@ -675,6 +657,30 @@ def analyze_agent_tuning_dataset():
     category_counts['readable_category'] = category_counts['category'].map(option_mapping)
 
     return df, readable_categories, category_counts
+
+
+def get_knowledge():
+    topics = [
+        "https://www.modular.com",
+        "Chris Lattner",
+        "Mojo",
+        "Swift Async Await",
+        "MLIR"
+    ]
+    knowledge = {}
+    for topic in topics:
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt=f"Provide detailed information about {topic}.",
+            max_tokens=150
+        )
+        knowledge[topic] = response.choices[0].text.strip()
+    return knowledge
+
+
+def display_knowledge(knowledge):
+    for topic, info in knowledge.items():
+        print(f"Topic: {topic}\nInformation: {info}\n")
 
 
 def main(_):
@@ -724,6 +730,10 @@ def main(_):
     print("DataFrame loaded with shape:", df.shape)
     print("Readable categories:", readable_categories)
     print("Category counts:\n", category_counts)
+
+  elif _MODE.value == 'knowledge':
+    knowledge = get_knowledge()
+    display_knowledge(knowledge)
 
   else:
     raise ValueError(f'Unknown FLAGS.mode: {_MODE.value}')
@@ -841,7 +851,7 @@ def semiose_vetter(actionable_elements, query, embeddings_model='thenlper/gte-ba
         if df_ID >= 0:
             results_dict = {}
             results_dict['relevance_index'] = relevance_index
-            results_dict['id'] = df.at[df_ID, 'id']
+            results_dict['id'] = df.at(df_ID, 'id')
             result_list.append(results_dict)
     end_time = time.perf_counter()
     duration = round(end_time - start_time, 2)
