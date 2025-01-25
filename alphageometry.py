@@ -620,6 +620,63 @@ def run_alphageometry(
   return False
 
 
+def analyze_agent_tuning_dataset():
+    API_ENDPOINT = 'http://api.junglegym.ai'
+    API_KEY = os.environ.get('MIND2WEB_API_KEY', default='')
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer {}'.format(API_KEY)
+    }
+
+    def load_agent_instruct():
+        response = requests.get(API_ENDPOINT + '/load_agent_instruct', headers=headers)
+        if response.status_code == 200:
+            try:
+                response = json.loads(response.text)
+                df = pd.DataFrame(response['data'])
+                return df
+            except json.JSONDecodeError as e:
+                print("Failed to decode JSON:", e)
+        else:
+            print("HTTP request failed with status code:", response.status_code)
+            print("Response content: ", response.text)
+            return pd.DataFrame()
+
+    df = load_agent_instruct()
+
+    def remove_loss_key(entry):
+        if 'loss' in entry:
+            del entry['loss']
+        return entry
+
+    conversations = df['conversations']
+    for i, convo in enumerate(conversations):
+        for j, entry in enumerate(convo):
+            if 'loss' in entry:
+                del entry['loss']
+        conversations[i] = convo
+    df['conversations'] = conversations
+
+    df['category'] = df['id'].apply(lambda x: re.sub(r'_[0-9]+', '', x))
+
+    option_mapping = {
+        "os": "Operating System",
+        "webshop": "WebShop",
+        "mind2web": "Mind2Web",
+        "kg": "Knowledge Graph",
+        "db": "Database",
+        "alfworld": "ALFWorld"
+    }
+
+    readable_categories = [''] + ['All'] + [option_mapping.get(cat, cat) for cat in df['category'].unique()]
+
+    category_counts = df['category'].value_counts().reset_index()
+    category_counts.columns = ['category', 'count']
+    category_counts['readable_category'] = category_counts['category'].map(option_mapping)
+
+    return df, readable_categories, category_counts
+
+
 def main(_):
   global DEFINITIONS
   global RULES
@@ -662,6 +719,12 @@ def main(_):
         _OUT_FILE.value,
     )
 
+  elif _MODE.value == 'analyze_agent_tuning_dataset':
+    df, readable_categories, category_counts = analyze_agent_tuning_dataset()
+    print("DataFrame loaded with shape:", df.shape)
+    print("Readable categories:", readable_categories)
+    print("Category counts:\n", category_counts)
+
   else:
     raise ValueError(f'Unknown FLAGS.mode: {_MODE.value}')
 
@@ -670,7 +733,7 @@ def get_pos_candidates_branch(website, task, curriculum, actionable_elements, st
     start_time = time.perf_counter()
     enumerated_elements = "\n".join([f"{i+1}. {element}" for i, element in enumerate(actionable_elements)])
     elements = "\n".join([f"- {element}" for element in actionable_elements])
-    preprompt = f"You want to accomplish this task: {task} in this website: {website}\n\nFrom the following list with dictionaries of HTML elements, what is the best HTML 'id' or 'field_name' or 'link' or 'href' candidate value from a dictionary for the step: '{step}'?\n\n {elements}\n\nDo not explain. Only respond with the exact 'id' or 'field_name' or 'href' or 'link' value from the dictionary, do not include the key. Each line is an HTML element that contains additional context for the HTML element."
+    preprompt = f"You want to accomplish this task: {task} in this website: {website}\n\nFrom the following list with dictionaries of HTML elements, what is the best HTML 'id' or 'field_name' or 'link' candidate value from a dictionary for the step: '{step}'?\n\n {elements}\n\nDo not explain. Only respond with the exact 'id' or 'field_name' or 'href' or 'link' value from the dictionary, do not include the key. Each line is an HTML element that contains additional context for the HTML element."
     message_history = [
         {"role": "system", "content": f"You are an intelligent programmer using python's Selenium. You are helping a colleague select the best candidate value in a dictionary that has HTML 'id' or HTML 'field_name' or 'href' or 'link' value saved in a list of dictionaries. You must not lie or make up values. You only select an 'id' or 'field_name' or 'link' or 'href' value from the list of dictionaries."},
         {"role": "user", "content": preprompt}
