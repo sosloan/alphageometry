@@ -29,6 +29,25 @@ import lm_inference as lm
 import pretty as pt
 import problem as pr
 
+import requests
+import json
+import os
+import torch
+import numpy as np
+import pandas as pd
+from bs4 import BeautifulSoup
+import openai
+from selenium import webdriver
+from concurrent.futures import ThreadPoolExecutor
+from collections import Counter
+from sentence_transformers import SentenceTransformer
+from sentence_transformers.util import cos_sim
+import faiss
+import time
+from datetime import datetime
+import re
+import pytz
+from typing import Generator
 
 _GIN_SEARCH_PATHS = flags.DEFINE_list(
     'gin_search_paths',
@@ -645,6 +664,243 @@ def main(_):
 
   else:
     raise ValueError(f'Unknown FLAGS.mode: {_MODE.value}')
+
+
+def get_pos_candidates_branch(website, task, curriculum, actionable_elements, step, model, CoT):
+    start_time = time.perf_counter()
+    enumerated_elements = "\n".join([f"{i+1}. {element}" for i, element in enumerate(actionable_elements)])
+    elements = "\n".join([f"- {element}" for element in actionable_elements])
+    preprompt = f"You want to accomplish this task: {task} in this website: {website}\n\nFrom the following list with dictionaries of HTML elements, what is the best HTML 'id' or 'field_name' or 'link' or 'href' candidate value from a dictionary for the step: '{step}'?\n\n {elements}\n\nDo not explain. Only respond with the exact 'id' or 'field_name' or 'href' or 'link' value from the dictionary, do not include the key. Each line is an HTML element that contains additional context for the HTML element."
+    message_history = [
+        {"role": "system", "content": f"You are an intelligent programmer using python's Selenium. You are helping a colleague select the best candidate value in a dictionary that has HTML 'id' or HTML 'field_name' or 'href' or 'link' value saved in a list of dictionaries. You must not lie or make up values. You only select an 'id' or 'field_name' or 'link' or 'href' value from the list of dictionaries."},
+        {"role": "user", "content": preprompt}
+    ]
+    response = openai.ChatCompletion.create(model=model, messages=message_history, temperature=0.0)
+    total_tokens = response['usage']['total_tokens']
+    response = response['choices'][0]['message']['content'].strip('.').strip("'").strip('"')
+    if CoT == False:
+        end_time = time.perf_counter()
+        duration = round(end_time - start_time, 2)
+        return {'response': response, 'message_history': message_history, 'total_tokens': total_tokens, 'duration': duration, 'model': model}
+    message_history.append({"role": "assistant", "content": response})
+    message_history.append({"role": "user", "content": f"Is this 'id' or 'field_name' or 'link' or 'href' value in the list of dictionaries the best value for the given task? Check the list of dictionaries again. Here it is: \n{actionable_elements}\n. Only respond with the 'id' or 'field_name' or 'link' or 'href' value and do not explain."})
+    response = openai.ChatCompletion.create(model=model, messages=message_history, temperature=0.0)
+    total_tokens = response['usage']['total_tokens']
+    response = response['choices'][0]['message']['content'].strip('.').strip("'").strip('"')
+    end_time = time.perf_counter()
+    duration = round(end_time - start_time, 2)
+    return {'response': response, 'message_history': message_history, 'total_tokens': total_tokens, 'duration': duration, 'model': model}
+
+
+def tree_thought_generation(website, task, curriculum, actionable_elements, CoT, branches, step, model=MODEL):
+    start_time = time.perf_counter()
+    arguments = {
+        'website': website,
+        'task': task,
+        'curriculum': curriculum,
+        'actionable_elements': actionable_elements,
+        'step': step,
+        'model': model,
+        'CoT': CoT
+    }
+    website_results_ext = []
+    def run_tree():
+        with ThreadPoolExecutor() as executor:
+            futures = [executor.submit(get_pos_candidates_branch, **arguments) for _ in range(branches)]
+            for future in futures:
+                result = future.result()
+                website_results_ext.append(result)
+    run_tree()
+    branch_stats = []
+    for index, result in enumerate(website_results_ext):
+        index += 1
+        branch_name = str('branch_' + str(index))
+        branch_stats.append({branch_name: {'branch_result':result['response'], 'branch_duration': result['duration'], 'branch_tokens': result['total_tokens']}})
+    total_tokens = 0
+    for result in website_results_ext:
+        total_tokens += result['total_tokens']
+    candiates = []
+    for result in website_results_ext:
+        candiates.append(result['response'])
+    count = Counter(candiates)
+    if count:
+        majority_id_vote = max(count, key=count.get)
+        if len(set(count.values())) == len(count.values()):
+            for i in website_results_ext:
+                if i['response'] == majority_id_vote:
+                    end_time = time.perf_counter()
+                    duration = round(end_time - start_time, 2)
+                    return {'response':i, 'total_tokens':total_tokens, 'duration':duration, 'number_of_branches':len(website_results_ext), 'branch_stats':branch_stats, 'model':model}
+        else:
+            run_tree()
+            total_tokens = 0
+            for result in website_results_ext:
+                total_tokens += result['total_tokens']
+            candiates = []
+            for result in website_results_ext:
+                candiates.append(result[0])
+            branch_stats = []
+            for index, result in enumerate(website_results_ext):
+                index += 1
+                branch_name = str('branch_' + str(index))
+                branch_stats.append({branch_name: {'branch_result':result['response'], 'branch_duration': result['duration'], 'branch_tokens': result['total_tokens']}})
+            count = Counter(candiates)
+            majority_id_vote = max(count, key=count.get)
+            for i in website_results_ext:
+                if i['response'] == majority_id_vote:                       
+                    end_time = time.perf_counter()
+                    duration = round(end_time - start_time, 2)
+                    return {'response':i, 'total_tokens':total_tokens, 'duration':duration, 'number_of_branches':len(website_results_ext), 'branch_stats':branch_stats, 'model':model}
+    else:
+        return {'response': None}
+
+
+def semiose_vetter(actionable_elements, query, embeddings_model='thenlper/gte-base'):
+    start_time = time.perf_counter()
+    model = SentenceTransformer(embeddings_model)
+    if torch.cuda.is_available():
+        model = model.to(torch.device("cuda"))
+    df = pd.DataFrame(actionable_elements)
+    df['ID'] = df.index
+    df['id'] = df['id'].astype(str)
+    df['field_name'] = df['field_name'].astype(str)
+    df['element'] = df.apply(lambda row: f"{row['id']} - {row['field_name']}" if len(row['field_name']) > 2 else row['id'], axis=1)
+    embeddings = model.encode(df.element.to_list(), show_progress_bar=True)
+    embeddings = np.array([embedding for embedding in embeddings]).astype("float32")
+    index = faiss.IndexFlatL2(embeddings.shape[1])
+    index = faiss.IndexIDMap(index)
+    index.add_with_ids(embeddings, df.ID.values)
+    vector = model.encode(list([query]))
+    D, I = index.search(np.array(vector).astype("float32"), k=5)
+    indexed_list = I.flatten().tolist()
+    result_list = []
+    for relevance_index, df_ID in enumerate(indexed_list):
+        if df_ID >= 0:
+            results_dict = {}
+            results_dict['relevance_index'] = relevance_index
+            results_dict['id'] = df.at[df_ID, 'id']
+            result_list.append(results_dict)
+    end_time = time.perf_counter()
+    duration = round(end_time - start_time, 2)
+    return {'id_result': result_list[0]['id'], 'duration':duration, 'embeddings_model':embeddings_model}
+
+
+def code_generator(website, step_name, step_html_id, prev_code, model=MODEL):
+    now_utc = datetime.now(pytz.timezone('UTC'))
+    now_pacific = now_utc.astimezone(pytz.timezone('US/Pacific'))
+    time = now_pacific.strftime('%H:%M, %d-%m-%Y')
+    if prev_code != None:
+        preprompt1 = f"Write the python code to execute in Selenium the following step: '{step_name}', on the website {website}.\n\nThis is the codebase that was used to execute previous steps on this page, please incorporate it with your solution without missing any of the previous steps in the code:\n\n{prev_code}\n\nThe HTML element for this step to interact with is: {step_html_id}.\n\nOnly respond with the code to perform the step. Do not explain. Do not create HTML ids or HTML field_names, only use the one provided. If the HTML element contains 'id' then use Selenium's method 'By.ID', if the element contains 'field_name' then use Selenium's 'By.NAME' and so on. Avoid using 'By.TAG_NAME' as tag names are too generic and multiple elements have the same tag name. Use your best assessment for every HTML element to decide what Selenium method to use. At the top of the code, after the '```python', write the comments: '#Suggested code generated by JungleGym to incorporate with your Agent. Generated at (hr:min, day-month-year) Pacific Time: {time}"
+    else:
+        if "cms.junglegym.ai" not in website:
+            preprompt1 = f"Write the python code to execute in Selenium the following step: '{step_name}', on the website {website}.\n\nThe HTML element for this step to interact with is: {step_html_id}.\n\nOnly respond with the code to perform the task. Do not explain. Do not create HTML ids or HTML field_names, only use the one provided. If the HTML element contains 'id' then use Selenium's method 'By.ID', if the element contains 'field_name' then use Selenium's 'By.NAME' and so on. Avoid using 'By.TAG_NAME' as tag names are too generic and multiple elements have the same tag name. Use your best assessment for every HTML element to decide what Selenium method to use. At the top of the code, after the '```python', write the comments: '#Suggested code generated by JungleGym to incorporate with your Agent. Generated at (hr:min, day-month-year) Pacific Time: {time}"
+        else:
+            preprompt1 = f"Write the python code to execute in Selenium the following step: '{step_name}', on the website {website}.\n\nIf you need to login to the website, the username is 'admin' and the password is 'admin1234'\n\nThe HTML element for this step to interact with is: {step_html_id}.\n\nOnly respond with the code to perform the task. Do not explain. Do not create HTML ids or HTML field_names, only use the one provided. If the HTML element contains 'id' then use Selenium's method 'By.ID', if the element contains 'field_name' then use Selenium's 'By.NAME' and so on. Avoid using 'By.TAG_NAME' as tag names are too generic and multiple elements have the same tag name. Use your best assessment for every HTML element to decide what Selenium method to use. At the top of the code, after the '```python', write the comments: '#Suggested code generated by JungleGym to incorporate with your Agent. Generated at (hr:min, day-month-year) Pacific Time: {time}"
+    message_history=[
+            {"role": "system", "content": "You are a helpful and smart python developer using python's Selenium. You only respond with python code. You are only using the chrome driver."},
+            {"role": "user", "content": preprompt1}]
+    response = openai.ChatCompletion.create(model=model, messages=message_history, temperature=0.0)
+    response = response['choices'][0]['message']['content']
+    message_history.append({"role": "assistant", "content": response})
+    message_history.append({"role": "user", "content": 'How would you improve the code if you are executing this task in Selenium {step_name}? Only respond with the executable code to perform the task. Do not explain.'})
+    response = openai.ChatCompletion.create(model=model, messages=message_history, temperature=0.0)
+    total_tokens = response['usage']['total_tokens']
+    response = response['choices'][0]['message']['content']
+    return {'response':response, 'message_history':message_history, 'total_tokens': total_tokens, 'model':model}
+
+
+def save_skill_to_memory(curriculum, task, website, curriculum_tokens, step_name, step_html_id, step_tag_name, step_field_name, step_duration, step_total_tokens, number_of_branches, step_code, model, branch_stats):
+    if len(SKILL_MEMORY) == 0:
+        step_number = 0
+        task_element = {'task': task,
+                        'website': website,
+                        'curriculums':[{
+                                'curriculum': curriculum,
+                                'curriculum_tokens': curriculum_tokens,
+                                'steps':[{
+                                        'step_number': step_number,
+                                        'step_name': step_name,
+                                        'step_html_id': step_html_id,
+                                        'step_tag_name': step_tag_name,
+                                        'step_field_name': step_field_name,
+                                        'step_duration': step_duration,
+                                        'step_total_tokens': step_total_tokens,
+                                        'number_of_branches': number_of_branches,
+                                        'step_code': step_code,
+                                        'model': model,
+                                        'branch_stats': branch_stats,
+                                    }]
+                                }]
+                        }
+        SKILL_MEMORY.append(task_element)
+    else:
+        for t in SKILL_MEMORY:
+            if t['task'] == task:
+                for c in t['curriculums']:
+                    if c['curriculum'] == curriculum:
+                        step_number = len(c['steps']) + 1
+                        c['steps'].append(
+                            {
+                            'step_number': step_number,
+                            'step_name': step_name,
+                            'step_html_id': step_html_id,
+                            'step_tag_name': step_tag_name,
+                            'step_field_name': step_field_name,
+                            'step_duration': step_duration,
+                            'step_total_tokens': step_total_tokens,
+                            'number_of_branches': number_of_branches,
+                            'step_code': step_code,
+                            'model': model,
+                            'branch_stats': branch_stats,
+                            })
+                        return
+                    else:
+                        pass
+                step_number = 0
+                t['curriculums'].append(
+                        {'curriculum': curriculum,
+                        'curriculum_tokens': curriculum_tokens,
+                            'steps': [
+                                {
+                                'step_number': step_number,
+                                'step_name': step_name,
+                                'step_html_id': step_html_id,
+                                'step_tag_name': step_tag_name,
+                                'step_field_name': step_field_name,
+                                'step_duration': step_duration,
+                                'step_total_tokens': step_total_tokens,
+                                'number_of_branches': number_of_branches,
+                                'step_code': step_code,
+                                'model': model,
+                                'branch_stats': branch_stats,
+                                }
+                            ]
+                        })
+                return
+            else:
+                pass
+        step_number = 0
+        task_element = {'task': task,
+                        'website': website,
+                        'curriculums':[{
+                                'curriculum': curriculum,
+                                'curriculum_tokens': curriculum_tokens,
+                                'steps':[{
+                                        'step_number': step_number,
+                                        'step_name': step_name,
+                                        'step_html_id': step_html_id,
+                                        'step_tag_name': step_tag_name,
+                                        'step_field_name': step_field_name,
+                                        'step_duration': step_duration,
+                                        'step_total_tokens': step_total_tokens,
+                                        'number_of_branches': number_of_branches,
+                                        'step_code': step_code,
+                                        'model': model,
+                                        'branch_stats': branch_stats,
+                                    }]
+                                }]
+                        }
+        SKILL_MEMORY.append(task_element)
 
 
 if __name__ == '__main__':
