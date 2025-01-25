@@ -612,7 +612,7 @@ def analyze_agent_tuning_dataset():
 
     def load_agent_instruct():
         response = requests.get(API_ENDPOINT + '/load_agent_instruct', headers=headers)
-        if response.status_code == 200:
+        if (response.status_code == 200):
             try:
                 response = json.loads(response.text)
                 df = pd.DataFrame(response['data'])
