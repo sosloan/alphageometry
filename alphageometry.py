@@ -54,7 +54,7 @@ _PROBLEM_NAME = flags.DEFINE_string(
     'name of the problem to solve, must be in the problem_file.',
 )
 _MODE = flags.DEFINE_string(
-    'mode', 'ddar', 'either `ddar` (DD+AR) or `alphageometry`')
+    'mode', 'ddar', 'either `ddar` (DD+AR) or `alphageometry` or `analyze_agent_tuning_dataset`')
 _DEFS_FILE = flags.DEFINE_string(
     'defs_file',
     'defs.txt',
