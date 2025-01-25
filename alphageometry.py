@@ -54,7 +54,7 @@ _PROBLEM_NAME = flags.DEFINE_string(
     'name of the problem to solve, must be in the problem_file.',
 )
 _MODE = flags.DEFINE_string(
-    'mode', 'ddar', 'either `ddar` (DD+AR) or `alphageometry` or `analyze_agent_tuning_dataset`')
+    'mode', 'ddar', 'either `ddar` (DD+AR) or `alphageometry` or `analyze_agent_tuning_dataset` or `knowledge`')
 _DEFS_FILE = flags.DEFINE_string(
     'defs_file',
     'defs.txt',
@@ -659,6 +659,30 @@ def analyze_agent_tuning_dataset():
     return df, readable_categories, category_counts
 
 
+def get_knowledge():
+    topics = [
+        "https://www.modular.com",
+        "Chris Lattner",
+        "Mojo",
+        "Swift Async Await",
+        "MLIR"
+    ]
+    knowledge = {}
+    for topic in topics:
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt=f"Provide detailed information about {topic}.",
+            max_tokens=150
+        )
+        knowledge[topic] = response.choices[0].text.strip()
+    return knowledge
+
+
+def display_knowledge(knowledge):
+    for topic, info in knowledge.items():
+        print(f"Topic: {topic}\nInformation: {info}\n")
+
+
 def main(_):
   global DEFINITIONS
   global RULES
@@ -706,6 +730,10 @@ def main(_):
     print("DataFrame loaded with shape:", df.shape)
     print("Readable categories:", readable_categories)
     print("Category counts:\n", category_counts)
+
+  elif _MODE.value == 'knowledge':
+    knowledge = get_knowledge()
+    display_knowledge(knowledge)
 
   else:
     raise ValueError(f'Unknown FLAGS.mode: {_MODE.value}')
