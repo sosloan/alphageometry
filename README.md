@@ -1,4 +1,3 @@
-
 # Solving Olympiad Geometry without Human Demonstrations
 
 
@@ -297,6 +296,30 @@ This construction has a higher score (`-1.102287`) than the previous.
 Since the second construction has a higher score, DDAR attempted the second
 construction first and found the solution right away.
 The proof search therefore terminates and there is no second iteration.
+
+## Analyze AgentTuning Dataset
+
+The `analyze_agent_tuning_dataset` function allows you to analyze the AgentTuning dataset. This function loads the dataset, processes it, and provides summary statistics.
+
+To use this function, run the following command:
+
+```shell
+python -m alphageometry \
+--alsologtostderr \
+--mode=analyze_agent_tuning_dataset
+```
+
+Expect the following output:
+
+```shell
+DataFrame loaded with shape: (number_of_rows, number_of_columns)
+Readable categories: [list_of_categories]
+Category counts:
+ category  count
+0  category1   count1
+1  category2   count2
+...
+```
 
 ## Results
 
