@@ -140,6 +140,62 @@ class GraphUtilsTest(unittest.TestCase):
         ],  # pylint: disable=line-too-long
     )
 
+  def test_all_4points(self):
+    l1 = gu.Line('l1')
+    l2 = gu.Line('l2')
+    p1 = gu.Point('p1')
+    p2 = gu.Point('p2')
+    p3 = gu.Point('p3')
+    p4 = gu.Point('p4')
+    l1.connect_to(p1)
+    l1.connect_to(p2)
+    l2.connect_to(p3)
+    l2.connect_to(p4)
+    self.assertEqual(
+        gu.all_4points(l1, l2),
+        [
+            (p1, p2, p3, p4),
+            (p1, p2, p4, p3),
+            (p2, p1, p3, p4),
+            (p2, p1, p4, p3),
+        ],
+    )
+
+  def test_all_8points(self):
+    l1 = gu.Line('l1')
+    l2 = gu.Line('l2')
+    l3 = gu.Line('l3')
+    l4 = gu.Line('l4')
+    p1 = gu.Point('p1')
+    p2 = gu.Point('p2')
+    p3 = gu.Point('p3')
+    p4 = gu.Point('p4')
+    p5 = gu.Point('p5')
+    p6 = gu.Point('p6')
+    p7 = gu.Point('p7')
+    p8 = gu.Point('p8')
+    l1.connect_to(p1)
+    l1.connect_to(p2)
+    l2.connect_to(p3)
+    l2.connect_to(p4)
+    l3.connect_to(p5)
+    l3.connect_to(p6)
+    l4.connect_to(p7)
+    l4.connect_to(p8)
+    self.assertEqual(
+        gu.all_8points(l1, l2, l3, l4),
+        [
+            (p1, p2, p3, p4, p5, p6, p7, p8),
+            (p1, p2, p3, p4, p5, p6, p8, p7),
+            (p1, p2, p4, p3, p5, p6, p7, p8),
+            (p1, p2, p4, p3, p5, p6, p8, p7),
+            (p2, p1, p3, p4, p5, p6, p7, p8),
+            (p2, p1, p3, p4, p5, p6, p8, p7),
+            (p2, p1, p4, p3, p5, p6, p7, p8),
+            (p2, p1, p4, p3, p5, p6, p8, p7),
+        ],
+    )
+
 
 if __name__ == '__main__':
   absltest.main()
