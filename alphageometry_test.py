@@ -155,5 +155,61 @@ class AlphaGeometryTest(unittest.TestCase):
   def test_main(self):
     alphageometry.main(None)
 
+  def test_get_pos_candidates_branch(self):
+    website = "http://example.com"
+    task = "Test Task"
+    curriculum = "Test Curriculum"
+    actionable_elements = [{"id": "test_id", "field_name": "test_field"}]
+    step = "Test Step"
+    model = "gpt-4"
+    CoT = False
+    result = alphageometry.get_pos_candidates_branch(website, task, curriculum, actionable_elements, step, model, CoT)
+    self.assertIn('response', result)
+
+  def test_tree_thought_generation(self):
+    website = "http://example.com"
+    task = "Test Task"
+    curriculum = "Test Curriculum"
+    actionable_elements = [{"id": "test_id", "field_name": "test_field"}]
+    step = "Test Step"
+    model = "gpt-4"
+    CoT = False
+    branches = 3
+    result = alphageometry.tree_thought_generation(website, task, curriculum, actionable_elements, CoT, branches, step, model)
+    self.assertIn('response', result)
+
+  def test_semiose_vetter(self):
+    actionable_elements = [{"id": "test_id", "field_name": "test_field"}]
+    query = "Test Query"
+    result = alphageometry.semiose_vetter(actionable_elements, query)
+    self.assertIn('id_result', result)
+
+  def test_code_generator(self):
+    website = "http://example.com"
+    step_name = "Test Step"
+    step_html_id = "test_id"
+    prev_code = None
+    model = "gpt-4"
+    result = alphageometry.code_generator(website, step_name, step_html_id, prev_code, model)
+    self.assertIn('response', result)
+
+  def test_save_skill_to_memory(self):
+    curriculum = "Test Curriculum"
+    task = "Test Task"
+    website = "http://example.com"
+    curriculum_tokens = 100
+    step_name = "Test Step"
+    step_html_id = "test_id"
+    step_tag_name = "test_tag"
+    step_field_name = "test_field"
+    step_duration = 1.0
+    step_total_tokens = 50
+    number_of_branches = 3
+    step_code = "print('test')"
+    model = "gpt-4"
+    branch_stats = []
+    alphageometry.save_skill_to_memory(curriculum, task, website, curriculum_tokens, step_name, step_html_id, step_tag_name, step_field_name, step_duration, step_total_tokens, number_of_branches, step_code, model, branch_stats)
+    self.assertTrue(len(alphageometry.SKILL_MEMORY) > 0)
+
 if __name__ == '__main__':
   absltest.main()
