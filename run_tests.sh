@@ -27,4 +27,5 @@ python ar_test.py
 python ddar_test.py
 python trace_back_test.py
 python alphageometry_test.py
+python pretty_test.py
 python lm_inference_test.py --meliad_path=$MELIAD_PATH --data_path=$DATA

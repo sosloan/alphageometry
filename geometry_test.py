@@ -75,6 +75,45 @@ class GeometryTest(unittest.TestCase):
     # check that a==d because fact3 & fact4, not fact1 & fact2
     self.assertCountEqual(gm.why_equal(a, d), ['fact3', 'fact4'])
 
+  def test_why_equal_same_node_returns_empty(self):
+    a, _, _, _, _, _, _, _ = self._setup_equality_example()
+    self.assertEqual(gm.why_equal(a, a), [])
+
+  def test_why_equal_single_hop(self):
+    sa = gm.Segment('sa')
+    sb = gm.Segment('sb')
+    la = gm.Length('la_single')
+    lb = gm.Length('lb_single')
+    sa.connect_to(la)
+    la.connect_to(sa)
+    sb.connect_to(lb)
+    lb.connect_to(sb)
+    la.merge([lb], 'single_fact')
+    self.assertEqual(gm.why_equal(sa, sb), ['single_fact'])
+
+  def test_why_equal_unrelated_nodes_returns_none(self):
+    sa = gm.Segment('sa_unrel')
+    sb = gm.Segment('sb_unrel')
+    la = gm.Length('la_unrel')
+    lb = gm.Length('lb_unrel')
+    sa.connect_to(la)
+    la.connect_to(sa)
+    sb.connect_to(lb)
+    lb.connect_to(sb)
+    self.assertIsNone(gm.why_equal(sa, sb))
+
+  def test_node_name(self):
+    node = gm.Length('my_length')
+    self.assertEqual(node.name, 'my_length')
+
+  def test_node_initial_rep_is_self(self):
+    node = gm.Length('standalone')
+    self.assertIs(node.rep(), node)
+
+  def test_node_equivs_single_is_self(self):
+    node = gm.Length('solo')
+    self.assertIn(node, node.equivs())
+
 
 if __name__ == '__main__':
   absltest.main()
