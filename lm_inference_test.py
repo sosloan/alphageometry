@@ -84,6 +84,41 @@ class LmInferenceTest(unittest.TestCase):
         [-1.18607294559478759765625, -1.10228693485260009765625],
     )
 
+  def test_lm_encode(self):
+    inputs_str = "This is a test."
+    encoded = LmInferenceTest.loaded_lm.encode(inputs_str)
+    self.assertIsInstance(encoded, list)
+    self.assertTrue(all(isinstance(i, int) for i in encoded))
+
+  def test_lm_encode_list(self):
+    inputs_strs = ["This is a test.", "Another test."]
+    encoded_list = LmInferenceTest.loaded_lm.encode_list(inputs_strs)
+    self.assertIsInstance(encoded_list, list)
+    self.assertTrue(all(isinstance(i, int) for i in encoded_list))
+
+  def test_lm_decode_list(self):
+    tokens = [1, 2, 3, 4]
+    decoded_list = LmInferenceTest.loaded_lm.decode_list(tokens)
+    self.assertIsInstance(decoded_list, list)
+    self.assertTrue(all(isinstance(s, str) for s in decoded_list))
+
+  def test_lm_call(self):
+    inputs = LmInferenceTest.loaded_lm.encode("{S} a : ; b : ; c : ; d :")
+    inputs = jax.numpy.array([inputs] * LmInferenceTest.loaded_lm.batch_size)
+    metrics = LmInferenceTest.loaded_lm.call(inputs)
+    self.assertIsInstance(metrics, dict)
+    self.assertIn('finished_seqs', metrics)
+    self.assertIn('finished_scores', metrics)
+
+  def test_lm_beam_decode_with_dstate(self):
+    inputs = "{S} a : ; b : ; c : ; d : T a b c d 00 T a c b d 01 ? T a d b c"
+    dstate = None
+    outputs = LmInferenceTest.loaded_lm.beam_decode(inputs, dstate=dstate)
+    self.assertIsInstance(outputs, dict)
+    self.assertIn('finished_seqs', outputs)
+    self.assertIn('finished_scores', outputs)
+    self.assertIn('dstate', outputs)
+
 
 if __name__ == '__main__':
   absltest.main()

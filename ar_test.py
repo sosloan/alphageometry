@@ -199,6 +199,306 @@ class ARTest(unittest.TestCase):
 
     self.assertEqual(ar.minus(d1, b), ar.minus(c, e1))
 
+  def test_simplify(self):
+    self.assertEqual(ar.simplify(10, 5), (2, 1))
+    self.assertEqual(ar.simplify(100, 25), (4, 1))
+    self.assertEqual(ar.simplify(8, 4), (2, 1))
+    self.assertEqual(ar.simplify(9, 3), (3, 1))
 
-if __name__ == '__main__':
-  absltest.main()
+  def test_get_quotient(self):
+    self.assertEqual(ar.get_quotient(0.5), (1, 2))
+    self.assertEqual(ar.get_quotient(0.25), (1, 4))
+    self.assertEqual(ar.get_quotient(0.75), (3, 4))
+    self.assertEqual(ar.get_quotient(0.2), (1, 5))
+
+  def test_fix_v(self):
+    self.assertEqual(ar.fix_v(0.5), 0.5)
+    self.assertEqual(ar.fix_v(0.25), 0.25)
+    self.assertEqual(ar.fix_v(0.75), 0.75)
+    self.assertEqual(ar.fix_v(0.2), 0.2)
+
+  def test_fix(self):
+    self.assertEqual(ar.fix({'a': 0.5, 'b': 0.25}), {'a': 0.5, 'b': 0.25})
+    self.assertEqual(ar.fix({'a': 0.75, 'b': 0.2}), {'a': 0.75, 'b': 0.2})
+
+  def test_frac_string(self):
+    self.assertEqual(ar.frac_string(0.5), '1/2')
+    self.assertEqual(ar.frac_string(0.25), '1/4')
+    self.assertEqual(ar.frac_string(0.75), '3/4')
+    self.assertEqual(ar.frac_string(0.2), '1/5')
+
+  def test_hashed(self):
+    self.assertEqual(ar.hashed({'a': 0.5, 'b': 0.25}), (('a', 0.5), ('b', 0.25)))
+    self.assertEqual(ar.hashed({'a': 0.75, 'b': 0.2}), (('a', 0.75), ('b', 0.2)))
+
+  def test_is_zero(self):
+    self.assertTrue(ar.is_zero({'a': 0, 'b': 0}))
+    self.assertFalse(ar.is_zero({'a': 0.5, 'b': 0.25}))
+
+  def test_strip(self):
+    self.assertEqual(ar.strip({'a': 0, 'b': 0.25}), {'b': 0.25})
+    self.assertEqual(ar.strip({'a': 0.5, 'b': 0}), {'a': 0.5})
+
+  def test_plus(self):
+    self.assertEqual(ar.plus({'a': 0.5}, {'b': 0.25}), {'a': 0.5, 'b': 0.25})
+    self.assertEqual(ar.plus({'a': 0.5}, {'a': 0.25}), {'a': 0.75})
+
+  def test_plus_all(self):
+    self.assertEqual(
+        ar.plus_all({'a': 0.5}, {'b': 0.25}, {'c': 0.75}),
+        {'a': 0.5, 'b': 0.25, 'c': 0.75},
+    )
+    self.assertEqual(
+        ar.plus_all({'a': 0.5}, {'a': 0.25}, {'a': 0.75}), {'a': 1.5}
+    )
+
+  def test_mult(self):
+    self.assertEqual(ar.mult({'a': 0.5, 'b': 0.25}, 2), {'a': 1.0, 'b': 0.5})
+    self.assertEqual(ar.mult({'a': 0.5, 'b': 0.25}, 0.5), {'a': 0.25, 'b': 0.125})
+
+  def test_minus(self):
+    self.assertEqual(ar.minus({'a': 0.5}, {'b': 0.25}), {'a': 0.5, 'b': -0.25})
+    self.assertEqual(ar.minus({'a': 0.5}, {'a': 0.25}), {'a': 0.25})
+
+  def test_div(self):
+    self.assertEqual(ar.div({'a': 0.5}, {'a': 0.25}), 2.0)
+    self.assertEqual(ar.div({'a': 0.5, 'b': 0.25}, {'a': 0.25, 'b': 0.125}), 2.0)
+
+  def test_recon(self):
+    self.assertEqual(ar.recon({'a': 0.5, 'b': 0.25}, 'a'), ('b', {'a': -2.0}))
+    self.assertEqual(ar.recon({'a': 0.5, 'b': 0.25}, 'b'), ('a', {'b': -0.5}))
+
+  def test_replace(self):
+    self.assertEqual(
+        ar.replace({'a': 0.5, 'b': 0.25}, 'a', {'c': 0.75}),
+        {'b': 0.25, 'c': 0.375},
+    )
+    self.assertEqual(
+        ar.replace({'a': 0.5, 'b': 0.25}, 'b', {'c': 0.75}),
+        {'a': 0.5, 'c': 0.1875},
+    )
+
+  def test_comb2(self):
+    self.assertEqual(list(ar.comb2([1, 2, 3])), [(1, 2), (1, 3), (2, 3)])
+    self.assertEqual(list(ar.comb2([1, 2])), [(1, 2)])
+    self.assertEqual(list(ar.comb2([1])), [])
+
+  def test_perm2(self):
+    self.assertEqual(
+        list(ar.perm2([1, 2, 3])),
+        [(1, 2), (2, 1), (1, 3), (3, 1), (2, 3), (3, 2)],
+    )
+    self.assertEqual(list(ar.perm2([1, 2])), [(1, 2), (2, 1)])
+    self.assertEqual(list(ar.perm2([1])), [])
+
+  def test_chain2(self):
+    self.assertEqual(list(ar.chain2([1, 2, 3])), [(1, 2), (2, 3)])
+    self.assertEqual(list(ar.chain2([1, 2])), [(1, 2)])
+    self.assertEqual(list(ar.chain2([1])), [])
+
+  def test_table_add_free(self):
+    tb = ar.Table()
+    tb.add_free('a')
+    self.assertIn('a', tb.v2e)
+
+  def test_table_replace(self):
+    tb = ar.Table()
+    tb.add_free('a')
+    tb.add_free('b')
+    tb.replace('a', {'b': 0.5})
+    self.assertEqual(tb.v2e['b'], {'b': 1.0})
+    self.assertEqual(tb.v2e['a'], {'b': 0.5})
+
+  def test_table_add_expr(self):
+    tb = ar.Table()
+    tb.add_expr([('a', 0.5), ('b', 0.25)])
+    self.assertEqual(tb.v2e['a'], {'a': 1.0})
+    self.assertEqual(tb.v2e['b'], {'a': -2.0})
+
+  def test_table_register(self):
+    tb = ar.Table()
+    tb.register([('a', 0.5), ('b', 0.25)], 'fact1')
+    self.assertEqual(tb.v2e['a'], {'a': 1.0})
+    self.assertEqual(tb.v2e['b'], {'a': -2.0})
+
+  def test_table_register2(self):
+    tb = ar.Table()
+    tb.register2('a', 'b', 0.5, 0.25, 'fact1')
+    self.assertEqual(tb.v2e['a'], {'a': 1.0})
+    self.assertEqual(tb.v2e['b'], {'a': -2.0})
+
+  def test_table_register3(self):
+    tb = ar.Table()
+    tb.register3('a', 'b', 0.5, 'fact1')
+    self.assertEqual(tb.v2e['a'], {'a': 1.0})
+    self.assertEqual(tb.v2e['b'], {'a': -2.0})
+
+  def test_table_register4(self):
+    tb = ar.Table()
+    tb.register4('a', 'b', 'c', 'd', 'fact1')
+    self.assertEqual(tb.v2e['a'], {'a': 1.0})
+    self.assertEqual(tb.v2e['b'], {'a': -2.0})
+
+  def test_table_why(self):
+    tb = ar.Table()
+    tb.add_expr([('a', 0.5), ('b', 0.25)])
+    self.assertEqual(tb.why({'a': 0.5}), [])
+
+  def test_table_record_eq(self):
+    tb = ar.Table()
+    tb.record_eq('a', 'b', 'c', 'd')
+    self.assertIn(('a', 'b', 'c', 'd'), tb.eqs)
+
+  def test_table_check_record_eq(self):
+    tb = ar.Table()
+    tb.record_eq('a', 'b', 'c', 'd')
+    self.assertTrue(tb.check_record_eq('a', 'b', 'c', 'd'))
+    self.assertFalse(tb.check_record_eq('a', 'b', 'c', 'e'))
+
+  def test_table_add_eq2(self):
+    tb = ar.Table()
+    tb.add_eq2('a', 'b', 0.5, 0.25, 'fact1')
+    self.assertEqual(tb.v2e['a'], {'a': 1.0})
+    self.assertEqual(tb.v2e['b'], {'a': -2.0})
+
+  def test_table_add_eq3(self):
+    tb = ar.Table()
+    tb.add_eq3('a', 'b', 0.5, 'fact1')
+    self.assertEqual(tb.v2e['a'], {'a': 1.0})
+    self.assertEqual(tb.v2e['b'], {'a': -2.0})
+
+  def test_table_add_eq4(self):
+    tb = ar.Table()
+    tb.add_eq4('a', 'b', 'c', 'd', 'fact1')
+    self.assertEqual(tb.v2e['a'], {'a': 1.0})
+    self.assertEqual(tb.v2e['b'], {'a': -2.0})
+
+  def test_table_pairs(self):
+    tb = ar.Table()
+    tb.add_free('a')
+    tb.add_free('b')
+    self.assertEqual(list(tb.pairs()), [('a', 'b'), ('b', 'a')])
+
+  def test_table_modulo(self):
+    tb = ar.Table()
+    self.assertEqual(tb.modulo({'a': 0.5}), {'a': 0.5})
+
+  def test_table_get_all_eqs(self):
+    tb = ar.Table()
+    tb.add_expr([('a', 0.5), ('b', 0.25)])
+    self.assertEqual(tb.get_all_eqs(), {(('a', 0.5),): [('a', 'b')]})
+
+  def test_table_get_all_eqs_and_why(self):
+    tb = ar.Table()
+    tb.add_expr([('a', 0.5), ('b', 0.25)])
+    self.assertEqual(list(tb.get_all_eqs_and_why()), [])
+
+  def test_geometric_table_get_name(self):
+    tb = ar.GeometricTable()
+    self.assertEqual(tb.get_name([gh.Point('a')]), ['a'])
+
+  def test_geometric_table_map2obj(self):
+    tb = ar.GeometricTable()
+    tb.get_name([gh.Point('a')])
+    self.assertEqual(tb.map2obj(['a']), [gh.Point('a')])
+
+  def test_geometric_table_get_all_eqs_and_why(self):
+    tb = ar.GeometricTable()
+    tb.add_expr([('a', 0.5), ('b', 0.25)])
+    self.assertEqual(list(tb.get_all_eqs_and_why(True)), [])
+
+  def test_ratio_table_add_eq(self):
+    tb = ar.RatioTable()
+    tb.add_eq(gh.Length('a'), gh.Length('b'), 'fact1')
+    self.assertEqual(tb.v2e['a'], {'a': 1.0})
+    self.assertEqual(tb.v2e['b'], {'a': -1.0})
+
+  def test_ratio_table_add_const_ratio(self):
+    tb = ar.RatioTable()
+    tb.add_const_ratio(gh.Length('a'), gh.Length('b'), 0.5, 0.25, 'fact1')
+    self.assertEqual(tb.v2e['a'], {'a': 1.0})
+    self.assertEqual(tb.v2e['b'], {'a': -2.0})
+
+  def test_ratio_table_add_eqratio(self):
+    tb = ar.RatioTable()
+    tb.add_eqratio(
+        gh.Length('a'),
+        gh.Length('b'),
+        gh.Length('c'),
+        gh.Length('d'),
+        'fact1',
+    )
+    self.assertEqual(tb.v2e['a'], {'a': 1.0})
+    self.assertEqual(tb.v2e['b'], {'a': -1.0})
+
+  def test_ratio_table_get_all_eqs_and_why(self):
+    tb = ar.RatioTable()
+    tb.add_expr([('a', 0.5), ('b', 0.25)])
+    self.assertEqual(list(tb.get_all_eqs_and_why(True)), [])
+
+  def test_angle_table_modulo(self):
+    tb = ar.AngleTable()
+    self.assertEqual(tb.modulo({'a': 0.5}), {'a': 0.5})
+
+  def test_angle_table_add_para(self):
+    tb = ar.AngleTable()
+    tb.add_para(gh.Direction('a'), gh.Direction('b'), 'fact1')
+    self.assertEqual(tb.v2e['a'], {'a': 1.0})
+    self.assertEqual(tb.v2e['b'], {'a': -1.0})
+
+  def test_angle_table_add_const_angle(self):
+    tb = ar.AngleTable()
+    tb.add_const_angle(gh.Direction('a'), gh.Direction('b'), 0.5, 'fact1')
+    self.assertEqual(tb.v2e['a'], {'a': 1.0})
+    self.assertEqual(tb.v2e['b'], {'a': -2.0})
+
+  def test_angle_table_add_eqangle(self):
+    tb = ar.AngleTable()
+    tb.add_eqangle(
+        gh.Direction('a'),
+        gh.Direction('b'),
+        gh.Direction('c'),
+        gh.Direction('d'),
+        'fact1',
+    )
+    self.assertEqual(tb.v2e['a'], {'a': 1.0})
+    self.assertEqual(tb.v2e['b'], {'a': -1.0})
+
+  def test_angle_table_get_all_eqs_and_why(self):
+    tb = ar.AngleTable()
+    tb.add_expr([('a', 0.5), ('b', 0.25)])
+    self.assertEqual(list(tb.get_all_eqs_and_why(True)), [])
+
+  def test_distance_table_pairs(self):
+    tb = ar.DistanceTable()
+    tb.add_free('a:1')
+    tb.add_free('a:2')
+    self.assertEqual(list(tb.pairs()), [('a:1', 'a:2'), ('a:2', 'a:1')])
+
+  def test_distance_table_name(self):
+    tb = ar.DistanceTable()
+    self.assertEqual(tb.name(gh.Line('a'), gh.Point('b')), 'a:b')
+
+  def test_distance_table_map2obj(self):
+    tb = ar.DistanceTable()
+    tb.name(gh.Line('a'), gh.Point('b'))
+    self.assertEqual(tb.map2obj(['a:b']), [gh.Point('b')])
+
+  def test_distance_table_add_cong(self):
+    tb = ar.DistanceTable()
+    tb.add_cong(
+        gh.Line('a'),
+        gh.Line('b'),
+        gh.Point('c'),
+        gh.Point('d'),
+        gh.Point('e'),
+        gh.Point('f'),
+        'fact1',
+    )
+    self.assertEqual(tb.v2e['a:c'], {'a:c': 1.0})
+    self.assertEqual(tb.v2e['a:d'], {'a:c': -1.0})
+
+  def test_distance_table_get_all_eqs_and_why(self):
+    tb = ar.DistanceTable()
+    tb.add_expr([('a:1', 0.5), ('a:2', 0.25)])
+    self.assertEqual(list(tb.get_all_eqs_and_why(True)), [])
